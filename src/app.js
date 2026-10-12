@@ -11,27 +11,15 @@ import {
   var $=function(s,r){return (r||document).querySelector(s)};
   var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
 
-  /* ---------- splash loader ---------- */
-  var steps=['Loading your habits…','Syncing your tasks…','Setting up today…','Ready'];
-  var pr=$('#pr'),core=$('#core'),go=$('#go'),status=$('#status'),C=238.8,start=null,DUR=1500;
-  function tick(t){
-    if(!start)start=t;
-    var p=Math.min((t-start)/DUR,1), e=1-Math.pow(1-p,2);
-    pr.style.strokeDashoffset=C*(1-e);
-    core.textContent=Math.round(e*100)+'%';
-    status.textContent=steps[Math.min(Math.floor(p*3.01),3)];
-    if(p<1){requestAnimationFrame(tick)}else{
-      go.classList.add('ready');core.textContent='→';status.textContent='Starting…';setTimeout(enter,450);
-    }
-  }
-  requestAnimationFrame(tick);
+  /* ---------- splash (0.2 s) ---------- */
   var entered=false;
   function enter(){
     if(entered)return;entered=true;
     $('#splash').classList.add('out');$('#app').hidden=false;
-    setTimeout(function(){$('#splash').hidden=true},450);
+    setTimeout(function(){$('#splash').hidden=true},200);
   }
-  go.addEventListener('click',enter);
+  setTimeout(enter,200);
+  $('#splash').addEventListener('click',enter);
 
   /* ---------- shared data ---------- */
   var habits=[
@@ -76,7 +64,7 @@ import {
   function hGoal(h,gl){if(!gl)return;var was=hCur(h);h.s=gl;if(hCnt(h)){h.v=Math.min(was,hTgt(h));h.d=h.v>=hTgt(h)}else{h.v=null}}
 
   /* ---------- save to device (localStorage) ---------- */
-  var KEY='study2do.v1',lastSaved='',halt=false,failed=false,cfg={auto:true,sample:true,bak:0,bakDay:''};
+  var KEY='study2do.v1',lastSaved='',halt=false,failed=false,cfg={auto:true,sample:true,bak:0,bakDay:'',name:'Maruf',av:'',photo:'',since:''};
   function readSaved(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){try{return JSON.parse(localStorage.getItem(KEY+'.bak')||'null')}catch(e2){return null}}}
   function swap(arr,src){Array.prototype.splice.apply(arr,[0,arr.length].concat(src))}
   try{
@@ -101,6 +89,7 @@ import {
       }
     }
   }catch(e){}
+  if(!cfg.since)cfg.since=todayKey;
   function persist(){
     if(halt)return;
     try{
@@ -163,7 +152,6 @@ import {
     {n:'Physics revision',i:'∑',d:'Task · Fri',w:'Exam day',p:35}
   ];
   var order1=splashItems.map(function(_,i){return i}),order2=tasks.map(function(_,i){return i}),order3=order2.slice();
-  Deck($('#deck1'),order1,true,splashItems).auto(2600);
 
   var hstyle='focus';
   function listHTML(){
@@ -219,6 +207,7 @@ import {
   /* ---------- render ---------- */
   function done(){return habits.filter(function(h){return h.d}).length}
   function renderHome(){
+    paintHead();
     var n=done(),t=habits.length,p=Math.round(n/t*100);
     
     var tt=0;for(var kk=0;kk<14;kk++){var dd2=new Date(now);dd2.setDate(now.getDate()-kk);tt+=countOn(keyOf(dd2))}
@@ -269,8 +258,105 @@ import {
     }
     $('#tbody').innerHTML=h;
   }
-  $('#bell').addEventListener('click',function(){this.classList.add('seen');toast('No new notifications')});
-  $('#avatar').addEventListener('click',function(){show('settings')});
+  /* ---------- profile, status line, bell ---------- */
+  var seenSig='',pAv='',pPhoto='';
+  var EMO=['🙂','😎','🦊','🐼','🌱','🔥','⭐','🎯'];
+  function okPhoto(s){return typeof s==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(s)}
+  function initialOf(n){n=(n||'').trim();return n?Array.from(n)[0].toUpperCase():'?'}
+  function avHTML(av,photo,name){
+    if(av==='photo'&&okPhoto(photo))return '<img alt="" src="'+photo+'">';
+    if(av&&EMO.indexOf(av)>=0)return av;
+    return esc(initialOf(name));
+  }
+  function alerts(){
+    var out=[],d=new Date(),h=d.getHours(),m=h*60+d.getMinutes();
+    tasks.forEach(function(t){
+      if(t.off!==0||t.f)return;
+      if(t.ts!=null&&t.ts<=m)out.push({ic:'⏰',t:t.n,s:'Planned for '+fm12(t.ts)+', not done yet',go:'tasks'});
+      else if(t.ts!=null&&t.ts-m<=60)out.push({ic:'⏳',t:t.n,s:'Starts at '+fm12(t.ts),go:'tasks'});
+      else if(t.q===0)out.push({ic:'❗',t:t.n,s:'Priority task for today',go:'tasks'});
+    });
+    if(h>=18)habits.forEach(function(x,i){
+      if(isDone(i,todayKey))return;var st=streakOf(i);
+      if(st>=2)out.push({ic:'🔥',t:x.n,s:'Check in to keep your '+st+'-day streak',go:'habits'});
+    });
+    return out;
+  }
+  function sigOf(a){return a.map(function(x){return x.t+'|'+x.s}).join('||')}
+  function paintHead(){
+    var h=new Date().getHours();
+    $('#greet').textContent=(h<12?'Good morning':h<18?'Good afternoon':'Good evening')+',';
+    $('#dname').textContent=cfg.name||'there';
+    $('#avatar').innerHTML=avHTML(cfg.av,cfg.photo,cfg.name);
+    var tl=tasks.filter(function(x){return x.off===0&&!x.f}).length,hl=habits.filter(function(x){return !x.d}).length,parts=[],txt;
+    if(tl)parts.push(tl+(tl===1?' task':' tasks'));
+    if(hl)parts.push(hl+(hl===1?' habit':' habits'));
+    if(parts.length)txt=parts.join(' and ')+' left today';
+    else{var b=bestStreak();txt='All done for today'+(b>=2?'. 🔥 '+b+'-day streak':'')}
+    $('#hsub').textContent=txt;
+    var a=alerts();$('#bell').classList.toggle('seen',!a.length||sigOf(a)===seenSig);
+  }
+  setInterval(paintHead,60000);
+  $('#bell').addEventListener('click',function(){
+    var a=alerts();seenSig=sigOf(a);this.classList.add('seen');
+    var h='<h3>Today</h3>';
+    h+=a.length?a.map(function(x){return '<button class="o" data-go="'+x.go+'"><span class="ni">'+x.ic+'</span><span class="nt"><b>'+esc(x.t)+'</b><small>'+esc(x.s)+'</small></span></button>'}).join(''):'<div class="msg" style="margin:0">You are all caught up.</div>';
+    h+='<button class="o" data-close="1" style="justify-content:center">Close</button>';
+    $('#nbox').innerHTML=h;$('#nsheet').hidden=false;
+  });
+  $('#nsheet').addEventListener('click',function(e){
+    var g=e.target.closest('[data-go]');if(g)show(g.dataset.go);
+    if(g||e.target===this||e.target.closest('[data-close]'))this.hidden=true;
+  });
+  function paintPicker(){
+    var nm=$('#pname').value,h='';
+    h+='<button type="button" data-a="" class="'+(!pAv?'on':'')+'" aria-label="Use initial">'+esc(initialOf(nm))+'</button>';
+    EMO.forEach(function(e){h+='<button type="button" data-a="'+e+'" class="'+(pAv===e?'on':'')+'">'+e+'</button>'});
+    if(okPhoto(pPhoto))h+='<button type="button" data-a="photo" class="'+(pAv==='photo'?'on':'')+'" aria-label="Use photo"><img alt="" src="'+pPhoto+'"></button>';
+    h+='<button type="button" data-a="pick" aria-label="Upload a photo">📷</button>';
+    $('#emrow').innerHTML=h;$('#pavbig').innerHTML=avHTML(pAv,pPhoto,nm);
+  }
+  function paintPStats(){
+    var tot=0,tt=0,t=habits.length;
+    Object.keys(log).forEach(function(k){var r=log[k]||{};Object.keys(r).forEach(function(i){if(r[i])tot++})});
+    tot+=done();
+    for(var k=0;k<14;k++){var d=new Date(now);d.setDate(now.getDate()-k);tt+=countOn(keyOf(d))}
+    $('#ps1').textContent=bestStreak();$('#ps2').textContent=(t?Math.round(tt/(14*t)*100):0)+'%';$('#ps3').textContent=tot;
+    var sp=String(cfg.since||'').split('-');
+    $('#psince').textContent=sp.length===3?'Using since '+new Date(+sp[0],+sp[1]-1,+sp[2]).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+  }
+  function openProfile(){
+    pAv=cfg.av||'';pPhoto=okPhoto(cfg.photo)?cfg.photo:'';
+    $('#pname').value=cfg.name||'';paintPicker();paintPStats();$('#psheet').hidden=false;
+  }
+  function saveProfile(){
+    var n=$('#pname').value.trim();if(!n){$('#pname').focus();return}
+    cfg.name=n;cfg.av=pAv;cfg.photo=pPhoto;persist();paintHead();$('#psheet').hidden=true;toast('Profile saved');
+  }
+  function pickPhoto(){$('#pphoto').value='';$('#pphoto').click()}
+  $('#avatar').addEventListener('click',openProfile);
+  $('#pavbig').addEventListener('click',pickPhoto);
+  $('#emrow').addEventListener('click',function(e){
+    var b=e.target.closest('[data-a]');if(!b)return;
+    if(b.dataset.a==='pick'){pickPhoto();return}
+    pAv=b.dataset.a;paintPicker();
+  });
+  $('#pname').addEventListener('input',paintPicker);
+  $('#pname').addEventListener('keydown',function(e){if(e.key==='Enter')saveProfile()});
+  $('#pphoto').addEventListener('change',function(){
+    var f=this.files&&this.files[0];if(!f)return;
+    var url=URL.createObjectURL(f),img=new Image();
+    img.onload=function(){
+      var s=160,c=document.createElement('canvas'),m=Math.min(img.width,img.height);
+      c.width=c.height=s;c.getContext('2d').drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,s,s);
+      pPhoto=c.toDataURL('image/jpeg',.82);pAv='photo';URL.revokeObjectURL(url);paintPicker();
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);toast('Could not read that picture')};
+    img.src=url;
+  });
+  $('#psave').addEventListener('click',saveProfile);
+  $('#pcancel').addEventListener('click',function(){$('#psheet').hidden=true});
+  $('#psheet').addEventListener('click',function(e){if(e.target===this)this.hidden=true});
   function renderHabits(){
     var _d=new Date(now);_d.setDate(now.getDate()+tday);$('#nb').textContent=countOn(keyOf(_d))+'/'+habits.length;$('#nq').textContent=Math.max.apply(null,quit.map(function(q){return q.days}).concat([0]))+'d';
     var h='';
@@ -504,7 +590,7 @@ import {
   }
   $('#autorow').addEventListener('click',function(){cfg.auto=!cfg.auto;if(cfg.auto)cfg.bakDay='';persist();paintCfg()});
   function exportData(){
-    var data=JSON.stringify({app:'tickly',v:1,exported:new Date().toISOString(),day:todayKey,habits:habits,quit:quit,tasks:tasks,log:log,cfg:{auto:cfg.auto,sample:cfg.sample}},null,1);
+    var data=JSON.stringify({app:'tickly',v:1,exported:new Date().toISOString(),day:todayKey,habits:habits,quit:quit,tasks:tasks,log:log,cfg:{auto:cfg.auto,sample:cfg.sample,name:cfg.name,av:cfg.av,photo:cfg.photo,since:cfg.since}},null,1);
     var name='habit-task-backup-'+todayKey+'.json';
     saveBackup(data,name).then(function(how){if(how==='download')toast('Backup downloaded')}).catch(function(){toast('Export failed')});
   }
@@ -515,7 +601,7 @@ import {
     r.onload=function(){
       var d;try{d=JSON.parse(r.result);if((d.app!=='tickly'&&d.app!=='habitask'&&d.app!=='study2do')||!Array.isArray(d.habits)||!Array.isArray(d.tasks)||!Array.isArray(d.quit))throw 0}catch(e){toast('That is not a valid Habitask backup');return}
       if(!confirm('Replace all current data with this backup?'))return;
-      try{localStorage.setItem(KEY,JSON.stringify({day:d.day||todayKey,habits:d.habits,quit:d.quit,tasks:d.tasks,log:d.log||{},cfg:{auto:d.cfg?d.cfg.auto!==false:true,sample:!!(d.cfg&&d.cfg.sample),bak:0,bakDay:''},theme:document.documentElement.getAttribute('data-theme')}));halt=true;location.reload()}
+      try{localStorage.setItem(KEY,JSON.stringify({day:d.day||todayKey,habits:d.habits,quit:d.quit,tasks:d.tasks,log:d.log||{},cfg:{auto:d.cfg?d.cfg.auto!==false:true,sample:!!(d.cfg&&d.cfg.sample),bak:0,bakDay:'',name:(d.cfg&&d.cfg.name)||'Maruf',av:(d.cfg&&d.cfg.av)||'',photo:(d.cfg&&d.cfg.photo)||'',since:(d.cfg&&d.cfg.since)||''},theme:document.documentElement.getAttribute('data-theme')}));halt=true;location.reload()}
       catch(e){toast('Could not restore (storage full?)')}
     };
     r.readAsText(f);
