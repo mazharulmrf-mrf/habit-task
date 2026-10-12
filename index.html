@@ -13,26 +13,16 @@
 
 <!-- Splash / loading -->
 <section class="screen" id="splash">
-  <div class="stage">
-    <div class="disc"></div>
-    <div class="deck" id="deck1"></div>
-  </div>
-  <div class="sp-copy">
-    <h1>Build habits.<br>Finish tasks.</h1>
-    <p>Track your daily habits, plan your tasks, and see your progress in one place.</p>
-  </div>
-  <button class="go" id="go" aria-label="Open Habit-Task">
-    <svg class="ring" viewBox="0 0 84 84"><circle class="tr" cx="42" cy="42" r="38"/><circle class="pr" id="pr" cx="42" cy="42" r="38"/></svg>
-    <span class="core" id="core">0%</span>
-  </button>
-  <div class="status" id="status">Loading your tasks…</div>
+  <img class="sp-logo" src="/pwa-512.png" alt="" width="112" height="112">
+  <h1 class="sp-name">Habit-Task</h1>
+  <p class="sp-tag">Build habits. Finish tasks.</p>
 </section>
 
 <!-- App -->
 <section class="screen" id="app" hidden>
   <div class="view" id="v-home">
     <div class="mhead">
-      <div><small id="greet">Hello, Maruf</small><div class="dayname"><span id="dname">Maruf</span></div></div>
+      <div class="who"><small id="greet">Hello,</small><div class="dayname"><span id="dname">Maruf</span></div><small class="hsub" id="hsub"></small></div>
       <div class="hact"><button class="hbtn" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21h4"/></svg><i class="nd"></i></button><button class="hbtn av" id="avatar" aria-label="Profile">M</button></div>
     </div>
     <div class="hh">
@@ -121,6 +111,18 @@
   </div></div>
 
   <div class="sheet" id="dsheet" hidden><div class="box tbox" id="dbox"></div></div>
+  <div class="sheet" id="psheet" hidden><div class="box tbox">
+    <h3>Profile</h3>
+    <div class="erow"><button class="eic pav" id="pavbig" type="button" aria-label="Change photo">M</button><input id="pname" maxlength="20" placeholder="Your name" autocomplete="off"></div>
+    <div class="plab">Picture</div>
+    <div class="emrow" id="emrow"></div>
+    <input type="file" id="pphoto" accept="image/*" hidden>
+    <div class="pst"><div><b id="ps1">0</b><small>Best streak</small></div><div><b id="ps2">0%</b><small>14 days</small></div><div><b id="ps3">0</b><small>Check-ins</small></div></div>
+    <small class="psince" id="psince"></small>
+    <button class="o save" id="psave">Save</button>
+    <button class="o" id="pcancel">Cancel</button>
+  </div></div>
+  <div class="sheet" id="nsheet" hidden><div class="box tbox" id="nbox"></div></div>
 </section>
 
 <!-- Lock -->
