@@ -1,0 +1,70 @@
+{
+  "name": "tickly",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Tickly: habits and tasks",
+  "author": "Md. Mazharul Islam Maruf <you@example.com>",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host",
+    "build:web": "vite build --mode web",
+    "build:android": "vite build",
+    "build:desktop": "vite build --mode desktop",
+    "android:sync": "npm run build:android && npx cap sync android && node scripts/patch-manifest.mjs",
+    "android:open": "npm run android:sync && npx cap open android",
+    "android:run": "npm run android:sync && npx cap run android",
+    "android:apk": "npm run android:sync && cd android && gradlew assembleDebug",
+    "icons": "npx capacitor-assets generate --android",
+    "desktop:dev": "npm run build:desktop && electron .",
+    "desktop:build": "npm run build:desktop && electron-builder"
+  },
+  "build": {
+    "appId": "com.maruf.tickly",
+    "productName": "Tickly",
+    "files": [
+      "dist-desktop/**",
+      "electron/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office"
+    }
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-pwa": "^2.0.0"
+  },
+  "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3"
+  }
+}

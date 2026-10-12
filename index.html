@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0e0d">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/pwa-192.png">
+<title>Habit-Task</title>
+</head>
+<body>
+<div class="shell" id="shell">
+
+<!-- Splash / loading -->
+<section class="screen" id="splash">
+  <div class="stage">
+    <div class="disc"></div>
+    <div class="deck" id="deck1"></div>
+  </div>
+  <div class="sp-copy">
+    <h1>Build habits.<br>Finish tasks.</h1>
+    <p>Track your daily habits, plan your tasks, and see your progress in one place.</p>
+  </div>
+  <button class="go" id="go" aria-label="Open Habit-Task">
+    <svg class="ring" viewBox="0 0 84 84"><circle class="tr" cx="42" cy="42" r="38"/><circle class="pr" id="pr" cx="42" cy="42" r="38"/></svg>
+    <span class="core" id="core">0%</span>
+  </button>
+  <div class="status" id="status">Loading your tasks…</div>
+</section>
+
+<!-- App -->
+<section class="screen" id="app" hidden>
+  <div class="view" id="v-home">
+    <div class="mhead">
+      <div><small id="greet">Hello, Maruf</small><div class="dayname"><span id="dname">Maruf</span></div></div>
+      <div class="hact"><button class="hbtn" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21h4"/></svg><i class="nd"></i></button><button class="hbtn av" id="avatar" aria-label="Profile">M</button></div>
+    </div>
+    <div class="hh">
+      <div class="hx"><div class="hl"><b class="hp" id="pp">0%</b><small id="sh"></small></div><div class="hrt2"><span class="hdate" id="hdate"></span><div class="b7" id="b7h" aria-hidden="true"></div></div></div>
+      <div class="hst"><div><b id="hs2"></b><small>Best streak</small></div><div><b id="hs4"></b><small>This week</small></div><div><b id="hs3"></b><small>14 days</small></div></div>
+    </div>
+    <div class="sec"><h3>Habits</h3><button data-go="habits">See all</button></div>
+    <div id="hgrid"></div>
+    <div class="sec" style="margin-top:16px"><h3>Quit</h3><button data-quit="1">See all</button></div>
+    <div class="qrow" id="qhome"></div>
+    <div class="sec" style="margin-top:16px"><h3>Today's tasks <small id="tcnt"></small></h3><button data-go="tasks">See all</button></div>
+    <div id="thome"></div>
+  </div>
+
+  <div class="view" id="v-tasks" hidden>
+    <h2 class="vtitle">Tasks</h2>
+    <div class="chips" id="tabs"></div>
+    <div id="tbody"></div>
+  </div>
+
+  <div class="view" id="v-habits" hidden>
+    <h2 class="vtitle">Habits</h2>
+    <div class="split2" id="bq"><button class="on" data-m="build"><small>Build</small><b id="nb">0/0</b><small>done today</small></button><button data-m="quit"><small>Quit</small><b id="nq">0d</b><small>best clean streak</small></button></div>
+    <div id="hb"></div>
+  </div>
+
+  <div class="view" id="v-settings" hidden>
+    <h2 class="vtitle">Settings</h2>
+    <div class="lab">Appearance</div>
+    <div class="toggle" id="theme"><button data-t="system" class="on">System</button><button data-t="dark">Dark</button><button data-t="light">Light</button></div>
+    <div class="lab">Data</div>
+    <div class="srow" id="autorow" role="button" tabindex="0"><span class="g">☁</span><div class="tx"><b>Daily safety copy</b><small id="baktxt">Kept on this device</small></div><span class="sw on" id="autosw"></span></div>
+    <div class="two"><button class="srow" id="exp">⇩ Export</button><button class="srow" id="imp">⇧ Restore</button></div><input type="file" id="impf" accept=".json,application/json" hidden>
+    <div class="srow" id="clr" role="button" tabindex="0"><span class="g">🧹</span><div class="tx"><b>Clear sample data</b><small>Removes demo tasks, quit list and fake history</small></div></div>
+    <div class="lab">Security</div>
+    <div class="srow" id="lockrow" role="button" tabindex="0"><span class="g">🔒</span><div class="tx"><b>App lock</b><small id="locktxt">Off</small></div><span class="sw" id="locksw"></span></div>
+    <div class="srow" id="biorow" role="button" tabindex="0" hidden><span class="g">👆</span><div class="tx"><b>Unlock with fingerprint</b><small id="biotxt">Off</small></div><span class="sw" id="biosw"></span></div>
+    <div class="lab">Daily rhythm</div>
+    <div class="srow"><span class="g">☾</span><div class="tx"><b>Day starts at</b><small>Late night counts for yesterday</small></div><span class="pill">3:00 AM</span></div>
+    <div class="srow" style="opacity:.55"><span class="g">🔔</span><div class="tx"><b>Done button in notifications</b><small>Not connected yet</small></div><span class="sw"></span></div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <div class="npill">
+      <button data-v="home" class="on" aria-label="Home"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg><u></u></button>
+      <button data-v="habits" aria-label="Habits"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></svg><u></u></button>
+      <button class="plus" id="plus" aria-label="Add">+</button>
+      <button data-v="tasks" aria-label="Tasks"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg><u></u></button>
+      <button data-v="settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37 1 .608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg><u></u></button>
+    </div>
+  </nav>
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="sheet" id="sheet" hidden><div class="box">
+    <button class="o" data-add="tasks">☑ New task</button>
+    <button class="o" data-add="habits">⟲ New habit</button>
+    <button class="o" data-add="quit">✕ Quit a habit</button>
+  </div></div>
+
+  <div class="sheet" id="esheet" hidden><div class="box">
+    <h3 id="etitle">New habit</h3>
+    <div class="erow"><span class="eic" id="eic">★</span><input id="hname" maxlength="28" placeholder="Habit name" autocomplete="off"></div>
+    <div class="erow" id="grow" style="margin-top:10px"><input id="hgoal" maxlength="20" placeholder="Daily goal, e.g. 8 glasses" autocomplete="off"></div>
+    <small id="ehint" style="color:var(--muted)"></small>
+    <button class="o save" id="esave">Save</button>
+    <button class="o" id="ecancel">Cancel</button>
+  </div></div>
+
+  <div class="sheet" id="tsheet" hidden><div class="box tbox">
+    <div class="trow"><h3 id="ttitle">New task</h3><span><button class="ib" id="tfav" aria-label="Favorite">♡</button><button class="ib" id="tclose" aria-label="Close">✕</button></span></div>
+    <textarea id="tname" rows="2" maxlength="120" placeholder="What needs doing?"></textarea>
+    <div class="trow2"><label><span>Date</span><input type="date" id="tdate"></label><label><span>Start</span><input type="time" id="tts"></label><label><span>End</span><input type="time" id="tte"></label></div>
+    <button class="o save" id="tsave">Add task</button>
+    <button class="mo" id="tmore">More options ▾</button>
+    <div id="tmorebox" hidden style="display:grid;gap:10px">
+      <small>Priority</small>
+      <div class="seg" id="tpr"><button data-v="0">High</button><button data-v="1" class="on">Medium</button><button data-v="2">Low</button></div>
+      <small>Repeat</small>
+      <div class="seg" id="trp"><button data-v="none" class="on">None</button><button data-v="daily">Daily</button><button data-v="weekly">Weekly</button><button data-v="monthly">Monthly</button></div>
+      <div id="tgoalrow" hidden style="display:grid;gap:10px"><small>Streak goal (optional, e.g. 7 per cycle)</small><input type="number" id="tgoal" min="1" placeholder="e.g. 7"></div>
+      <small>Note (optional)</small>
+      <textarea id="tnote" rows="2" placeholder="Add a note..."></textarea>
+      <small>Progress (optional) <b id="tpv">0%</b></small>
+      <input type="range" id="tprog" min="0" max="100" value="0">
+    </div>
+  </div></div>
+
+  <div class="sheet" id="dsheet" hidden><div class="box tbox" id="dbox"></div></div>
+</section>
+
+<!-- Lock -->
+<section class="screen" id="lock" hidden>
+  <div><h2 id="lt" style="font-size:26px">Enter PIN</h2><p id="lh" style="color:var(--muted);margin:6px 0 0">Enter your 4-digit PIN</p><p id="lcancel" role="button" tabindex="0" hidden style="color:var(--muted);margin:14px 0 0;text-decoration:underline">Cancel</p></div>
+  <div class="dots" id="dots"><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="pad"></div>
+  <button id="bio" hidden><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/></svg><span>Use fingerprint</span></button>
+</section>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
