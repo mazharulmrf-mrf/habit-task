@@ -1064,3 +1064,73 @@ button:active{transform:scale(.97)}
 .sp-logo{width:112px;height:112px;border-radius:28px;display:block;box-shadow:0 18px 40px -16px var(--shadow),0 0 0 1px var(--glass-border)}
 .sp-name{margin-top:18px;font-size:30px;letter-spacing:-.02em}
 .sp-tag{margin:6px 0 0;color:var(--muted);font-size:15px}
+
+/* ---- v2: scroll space above the bottom nav ---- */
+.screen .view{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+
+/* ---- v2: splash status ---- */
+.sp-status{margin-top:22px;color:var(--muted);font-size:15px;text-align:center;max-width:280px}
+.sp-status.err{color:var(--warn)}
+.sp-actions{display:flex;gap:10px;margin-top:14px}
+.sp-actions[hidden]{display:none!important}
+.sp-retry,.sp-fresh{height:44px;padding:0 20px;border-radius:99px;font-weight:700}
+.sp-retry{background:var(--accent);color:var(--accent-ink)}
+.sp-fresh{background:var(--surface2);color:var(--fg)}
+.sp-fresh[hidden]{display:none!important}
+
+/* ---- v2: home progress card ---- */
+.pcard{background:var(--fg);color:var(--bg);border-radius:26px;padding:18px;margin:6px 0 22px;display:grid;gap:14px}
+.pc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.pc-pct{display:block;font:700 52px/1 var(--display);letter-spacing:-.03em}
+.pc-sub{display:block;margin-top:8px;font-size:16px;opacity:.8}
+.pc-sub b{font-weight:700}
+.pc-date{font-size:13px;font-weight:600;padding:5px 10px;border-radius:99px;background:color-mix(in srgb,var(--bg) 18%,transparent);white-space:nowrap}
+.pc-bar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--bg) 20%,transparent);overflow:hidden}
+.pc-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--now);transition:width .3s}
+.pc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--bg) 18%,transparent)}
+.pc-stats b{display:block;font:700 19px/1.1 var(--display)}
+.pc-stats small{display:block;margin-top:3px;font-size:12.5px;line-height:1.25;opacity:.72}
+
+/* ---- v2: progress bar, home habit rows ---- */
+.pgb{display:block;height:8px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.pgb u{display:block;height:100%;border-radius:99px;background:var(--now);text-decoration:none;transition:width .25s}
+.hlx{display:grid;gap:8px}
+.hmr{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:18px;padding:10px 12px;box-shadow:0 0 0 1px var(--glass-border)}
+.hmi{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:grid;place-items:center;font-size:20px;flex:none}
+.hmx{flex:1;min-width:0;display:grid;gap:2px}
+.hmx b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmx small{color:var(--muted);font-size:13px}
+.hmx .pgb{margin-top:5px;height:5px}
+.hmb{height:38px;padding:0 14px;border-radius:99px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;flex:none}
+.hmr.done .hmb{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--line)}
+.hmr.done .hmx b::after{content:' ✓';color:var(--now)}
+
+/* ---- v2: habit cards (Habits screen) ---- */
+.hcard{background:var(--surface);border-radius:20px;padding:14px;margin-bottom:10px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--glass-border)}
+.hct{display:flex;align-items:center;gap:12px}
+.hci{width:44px;height:44px;border-radius:14px;background:var(--surface2);display:grid;place-items:center;font-size:22px;flex:none}
+.hcx{flex:1;min-width:0}
+.hcx b{display:block;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcx small{color:var(--muted);font-size:13.5px}
+.hcard.done .hcx b::after{content:' ✓';color:var(--now)}
+.hced{width:40px;height:40px;border-radius:12px;color:var(--muted);font-size:18px;flex:none}
+.hcp{display:flex;align-items:baseline;gap:6px}
+.hcp b{font:700 28px/1 var(--display)}
+.hcp span{color:var(--muted);font-size:15px}
+.hcard .wk{margin-top:0}
+.hca{display:flex;gap:8px;align-items:center}
+.hcs{min-width:64px;height:46px;padding:0 12px;border-radius:14px;background:var(--surface2);color:var(--fg);font-weight:700;font-size:15px;white-space:nowrap}
+.hcs:disabled{opacity:.35}
+.hcm{flex:1;height:46px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px}
+.hcard.done .hcm{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--line)}
+.hcn{color:var(--muted);font-size:14px}
+
+/* ---- v2: restore confirmation ---- */
+.rlist{display:grid;gap:2px;background:var(--surface2);border-radius:16px;padding:6px 14px}
+.rrow{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--line)}
+.rrow:last-child{border-bottom:0}
+.rrow span{color:var(--muted)}
+.rrow b{font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rwarn{margin:0;color:var(--muted);font-size:14px}
+.sheet button.rdanger{background:var(--warn);color:#fff;justify-content:center;font-weight:700}
+.sheet button#rcancel,.sheet button#rexp{justify-content:center}

@@ -11,15 +11,24 @@ import {
   var $=function(s,r){return (r||document).querySelector(s)};
   var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
 
-  /* ---------- splash (0.2 s) ---------- */
-  var entered=false;
+  /* ---------- splash: shows only the real loading result ---------- */
+  var splashT0=performance.now(),entered=false,freshArm=false;
   function enter(){
     if(entered)return;entered=true;
     $('#splash').classList.add('out');$('#app').hidden=false;
     setTimeout(function(){$('#splash').hidden=true},200);
   }
-  setTimeout(enter,200);
-  $('#splash').addEventListener('click',enter);
+  function showSplashError(r){
+    var s=$('#spstatus');s.classList.add('err');
+    s.textContent=r.err==='storage'?'This browser is blocking storage. Allow site data, then retry.':'Your saved data could not be read.';
+    $('#spactions').hidden=false;$('#spfresh').hidden=r.err!=='corrupt';
+    freshArm=false;$('#spfresh').textContent='Start fresh';
+  }
+  function afterLoad(r){
+    if(r.err){showSplashError(r);return}
+    var s=$('#spstatus');s.classList.remove('err');s.textContent='Ready';$('#spactions').hidden=true;
+    setTimeout(enter,Math.max(0,200-(performance.now()-splashT0)));
+  }
 
   /* ---------- shared data ---------- */
   var habits=[
@@ -53,22 +62,49 @@ import {
   for(var k=1;k<=13;k++){var pd=new Date(now);pd.setDate(now.getDate()-k);var lg={};
     habits.forEach(function(x,i){lg[i]=((k*7+i*3)%11)!==0});log[keyOf(pd)]=lg}
   function isDone(i,key){return key===todayKey?habits[i].d:!!(log[key]&&log[key][i])}
-  function setDone(i,key){if(key===todayKey)habits[i].d=!habits[i].d;else{log[key]=log[key]||{};log[key][i]=!log[key][i]}}
+  function completeHabit(i){var h=habits[i];if(hCnt(h)){h.pv=hCur(h)<hTgt(h)?hCur(h):null;h.v=hTgt(h)}else h.v=null;h.d=true}
+  function undoHabit(i){
+    var h=habits[i];
+    if(hCnt(h)){var t=hTgt(h);h.v=(h.pv!=null&&h.pv<t)?h.pv:Math.max(0,t-hStep(h))}else h.v=null;
+    h.pv=null;h.d=false;
+  }
+  function setDone(i,key){
+    if(key===todayKey){if(habits[i].d)undoHabit(i);else completeHabit(i)}
+    else{log[key]=log[key]||{};log[key][i]=!log[key][i]}
+  }
   function hM(h){return /^(\d+)\s*(.*)$/.exec(h.s||'')}
   function hTgt(h){var m=hM(h);return m?+m[1]:1}
   function hUnit(h){var m=hM(h);return m?m[2]:''}
   function hCnt(h){var m=hM(h);return !!m&&+m[1]>1&&!/^(am|pm)\b/i.test(m[2])}
-  function hStep(h){var t=hTgt(h);return t<=8?1:(t<=30?5:10)}
+  function hKind(h){if(!hCnt(h))return 'binary';return /^(sec|secs|min|mins|minute|minutes|hr|hrs|hour|hours)\b/i.test(hUnit(h))?'time':'qty'}
+  function hStep(h){
+    var t=hTgt(h),u=hUnit(h);
+    if(hKind(h)==='time'){if(/^h/i.test(u))return 1;if(/^s/i.test(u))return 10;return t<=20?5:(t<=60?10:15)}
+    return t<=8?1:(t<=30?5:10);
+  }
   function hCur(h){return h.v!=null?h.v:(h.d?hTgt(h):0)}
-  function hAdd(h,dl){var t=hTgt(h),v=Math.max(0,Math.min(t,hCur(h)+dl));h.v=v;h.d=v>=t;return v}
+  function hAdd(h,dl){var t=hTgt(h),v=Math.max(0,Math.min(t,hCur(h)+dl));h.v=v;h.d=v>=t;h.pv=null;return v}
   function hGoal(h,gl){if(!gl)return;var was=hCur(h);h.s=gl;if(hCnt(h)){h.v=Math.min(was,hTgt(h));h.d=h.v>=hTgt(h)}else{h.v=null}}
 
   /* ---------- save to device (localStorage) ---------- */
   var KEY='study2do.v1',lastSaved='',halt=false,failed=false,cfg={auto:true,sample:true,bak:0,bakDay:'',name:'Maruf',av:'',photo:'',since:''};
-  function readSaved(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){try{return JSON.parse(localStorage.getItem(KEY+'.bak')||'null')}catch(e2){return null}}}
+  function readSaved(){
+    var raw,bak;
+    try{raw=localStorage.getItem(KEY);bak=localStorage.getItem(KEY+'.bak')}catch(e){return {err:'storage'}}
+    if(raw==null&&bak==null)return {data:null};
+    var srcs=[raw,bak];
+    for(var q=0;q<2;q++){
+      if(srcs[q]==null)continue;
+      try{var o=JSON.parse(srcs[q]);if(o&&o.habits&&o.tasks&&o.quit)return {data:o}}catch(e){}
+    }
+    return {err:'corrupt'};
+  }
   function swap(arr,src){Array.prototype.splice.apply(arr,[0,arr.length].concat(src))}
-  try{
-    var sv=readSaved();
+  function loadData(){
+    var r=readSaved();
+    if(r.err)return r;
+    var sv=r.data;
+    try{
     if(sv&&sv.habits&&sv.tasks&&sv.quit){
       swap(habits,sv.habits);swap(quit,sv.quit);swap(tasks,sv.tasks);
       Object.keys(log).forEach(function(k){delete log[k]});for(var lk in (sv.log||{}))log[lk]=sv.log[lk];
@@ -77,7 +113,7 @@ import {
       var diff=Math.round((t0-new Date(+sp[0],+sp[1]-1,+sp[2]))/864e5);
       if(diff>0){
         var lg0={};habits.forEach(function(h,i){lg0[i]=!!h.d});log[sv.day]=lg0;
-        habits.forEach(function(h){h.d=false;h.v=0});
+        habits.forEach(function(h){h.d=false;h.v=0;h.pv=null});
         quit.forEach(function(q){q.days=(q.days||0)+diff});
         var keep=[];
         tasks.forEach(function(t){
@@ -88,8 +124,24 @@ import {
         swap(tasks,keep);
       }
     }
-  }catch(e){}
-  if(!cfg.since)cfg.since=todayKey;
+    }catch(e){return {err:'corrupt'}}
+    if(!cfg.since)cfg.since=todayKey;
+    return {ok:true};
+  }
+  var loadRes=loadData();
+  if(loadRes.err)halt=true;
+  afterLoad(loadRes);
+  $('#spretry').addEventListener('click',function(){
+    var r=loadData();
+    if(r.err){showSplashError(r);return}
+    halt=false;renderAll();paintCfg();afterLoad(r);
+  });
+  $('#spfresh').addEventListener('click',function(){
+    if(!freshArm){freshArm=true;this.textContent='Tap again to start fresh';return}
+    try{var raw=localStorage.getItem(KEY);if(raw)localStorage.setItem(KEY+'.corrupt',raw);localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.bak')}catch(e){}
+    if(!cfg.since)cfg.since=todayKey;
+    halt=false;persist();afterLoad({ok:true});
+  });
   function persist(){
     if(halt)return;
     try{
@@ -208,24 +260,25 @@ import {
   function done(){return habits.filter(function(h){return h.d}).length}
   function renderHome(){
     paintHead();
-    var n=done(),t=habits.length,p=Math.round(n/t*100);
-    
-    var tt=0;for(var kk=0;kk<14;kk++){var dd2=new Date(now);dd2.setDate(now.getDate()-kk);tt+=countOn(keyOf(dd2))}
-    $('#hs2').textContent=bestStreak();$('#hs3').textContent=Math.round(tt/(14*t)*100)+'%';$('#pp').innerHTML=p+'<span class="pc">%</span>';$('#tcnt').textContent=tasks.filter(function(x){return x.off===0&&!x.f}).length+' left';drawDots(p);$('#hdate').textContent=now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});drawPx();
-        $('#qhome').innerHTML=quit.map(function(q){return '<button class="qc" data-quit="1"><span class="qi">🚫</span><span class="qt"><b>'+q.n+'</b><small>'+q.days+' days clean</small></span></button>'}).join('');
+    var n=done(),t=habits.length,p=t?Math.round(n/t*100):0,tt=0,wk=0,bs=t?bestStreak():0;
+    for(var kk=0;kk<14;kk++){var dd2=new Date(now);dd2.setDate(now.getDate()-kk);var cc=countOn(keyOf(dd2));tt+=cc;if(kk<7)wk+=cc}
+    $('#pp').textContent=p+'%';
+    $('#sh').innerHTML='<b>'+n+'</b> of <b>'+t+'</b> habits completed today';
+    $('#pcbar').style.width=p+'%';
+    $('#hs2').textContent=bs+(bs===1?' day':' days');
+    $('#hs4').textContent=(t?Math.round(wk/(7*t)*100):0)+'%';
+    $('#hs3').textContent=(t?Math.round(tt/(14*t)*100):0)+'%';
+    $('#tcnt').textContent=tasks.filter(function(x){return x.off===0&&!x.f}).length+' left';
+    $('#hdate').textContent=now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
     var fmT=function(m){var h2=Math.floor(m/60),m2=m%60,ap=h2>=12?'PM':'AM';h2=h2%12||12;return h2+':'+(m2<10?'0':'')+m2+' '+ap};
     var tOpen=tasks.map(function(t2,i2){return {t:t2,i:i2}}).filter(function(x){return x.t.off===0&&!x.t.f}).sort(function(x,y){return (x.t.ts==null?-1:x.t.ts)-(y.t.ts==null?-1:y.t.ts)});
-    $('#thome').innerHTML=tOpen.length?tOpen.slice(0,3).map(function(x){var t2=x.t;return '<div class="tc sm" data-c="'+x.i+'" role="button" tabindex="0"><span class="tbar"></span><div class="tm"><div class="tt"><b>'+t2.n+'</b>'+(t2.q===0?'<span class="tag"><i></i>Priority</span>':'')+'</div><small>'+(t2.ts==null?'Anytime':fmT(t2.ts)+' – '+fmT(t2.te))+'</small></div><span class="tk"></span></div>'}).join('')+(tOpen.length>3?'<button class="more" data-go="tasks">+'+(tOpen.length-3)+' more today</button>':''):'<div class="msg" style="margin:0">All tasks done for today. Nice work.</div>';
-    $('#sh').textContent=n+' of '+t+' habits done today';drawHH(t);
-    var ord=habits.map(function(_,i){return i}).sort(function(x,y){return (habits[x].d?1:0)-(habits[y].d?1:0)||x-y});
-    var MAX=4,wkDays=[];for(var k=6;k>=0;k--){var wd=new Date(now);wd.setDate(now.getDate()-k);wkDays.push(keyOf(wd))}
-    var hh='<div class="hgrid2">'+ord.slice(0,MAX).map(function(i,pos){
-      var h=habits[i],m=/^(\d+)\s*(.*)$/.exec(h.s)||[0,h.s,''],wk=wkDays.map(function(key){return isDone(i,key)}),cnt=wk.filter(Boolean).length,vis;
-      if(hCnt(h)){var Cc=106.8;vis='<svg class="hring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17" fill="none" stroke="var(--line)" stroke-width="6"/><circle cx="22" cy="22" r="17" fill="none" stroke="var(--fg)" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+(Cc*hCur(h)/hTgt(h)).toFixed(1)+' '+Cc+'" transform="rotate(-90 22 22)"/></svg>'}else if(i%3===1){vis='<div class="hbars" aria-hidden="true">'+wk.map(function(on){return '<i class="'+(on?'on':'')+'" style="height:'+(on?28:11)+'px"></i>'}).join('')+'</div>'}
-      else{var C=106.8;vis='<svg class="hring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17" fill="none" stroke="var(--line)" stroke-width="6"/><circle cx="22" cy="22" r="17" fill="none" stroke="var(--fg)" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+(C*cnt/7).toFixed(1)+' '+C+'" transform="rotate(-90 22 22)"/></svg>'}
-      return '<button class="ht '+(h.d?'done':'')+'" data-i="'+i+'" aria-label="'+h.n+'"><div class="hth"><span class="hti">'+h.g+'</span><b>'+h.n+'</b><span class="htk">✓</span></div><div class="htb"><div class="htv"><b>'+(hCnt(h)?hCur(h):m[1])+'</b><small>'+(hCnt(h)?'/ '+m[1]+' '+m[2]:m[2])+'</small>'+(hCur(h)>0?'<span class="dec" data-dec="'+i+'" role="button" aria-label="Remove one">−</span>':'')+(hCur(h)<hTgt(h)?'<span class="dec" data-inc="'+i+'" role="button" aria-label="Add one">+</span>':'')+'</div>'+vis+'</div></button>'}).join('')+'</div>'
-      +(ord.length>MAX?'<button class="more" data-go="habits">+'+(ord.length-MAX)+' more habits</button>':'');
-    $('#hgrid').innerHTML=hh;
+    $('#thome').innerHTML=tOpen.length?tOpen.slice(0,3).map(function(x){var t2=x.t;return '<div class="tc sm" data-c="'+x.i+'" role="button" tabindex="0"><span class="tbar"></span><div class="tm"><div class="tt"><b>'+esc(t2.n)+'</b>'+(t2.q===0?'<span class="tag"><i></i>Priority</span>':'')+'</div><small>'+(t2.ts==null?'Anytime':fmT(t2.ts)+' – '+fmT(t2.te))+'</small></div><span class="tk"></span></div>'}).join('')+(tOpen.length>3?'<button class="more" data-go="tasks">+'+(tOpen.length-3)+' more today</button>':''):'<div class="msg" style="margin:0">All tasks done for today. Nice work.</div>';
+    var ord=habits.map(function(_,i){return i}).sort(function(x,y){return (habits[x].d?1:0)-(habits[y].d?1:0)||x-y}),MAX=4;
+    $('#hgrid').innerHTML=ord.length?'<div class="hlx">'+ord.slice(0,MAX).map(function(i){
+      var h=habits[i],prog=hKind(h)!=='binary',tg=hTgt(h),cu=hCur(h);
+      var sub=prog?(h.d?'Done · '+tg+' '+hUnit(h):cu+' / '+tg+' '+hUnit(h)):(h.d?'Done':'To do');
+      return '<div class="hmr'+(h.d?' done':'')+'"><span class="hmi">'+h.g+'</span><div class="hmx"><b>'+esc(h.n)+'</b><small>'+esc(sub)+'</small>'+(prog?'<i class="pgb"><u style="width:'+Math.min(100,Math.round(cu/tg*100))+'%"></u></i>':'')+'</div><button class="hmb" data-hc="'+i+'" aria-label="'+(h.d?'Undo ':'Complete ')+esc(h.n)+'">'+(h.d?'Undo':'Complete')+'</button></div>';
+    }).join('')+'</div>'+(ord.length>MAX?'<button class="more" data-go="habits">+'+(ord.length-MAX)+' more habits</button>':''):'<div class="msg" style="margin:0">No habits yet. Tap + to add one.</div>';
   }
   function renderTasks(){
     $('#tabs').innerHTML=['list','matrix','calendar'].map(function(f){return '<button class="chip '+(tab===f?'on':'')+'" data-t="'+f+'">'+f[0].toUpperCase()+f.slice(1)+'</button>'}).join('');
@@ -368,11 +421,11 @@ import {
       days.slice(7).forEach(function(d){wk+=countOn(keyOf(d))});
       h=dateBar(function(off,d){return off<=0&&countOn(keyOf(d))>0});
       var bars7=days.slice(7).map(function(d,bi){var c7=countOn(keyOf(d));return '<i class="'+(bi===6?'now':'')+'" style="height:'+Math.max(5,Math.round(c7/t*34))+'px"></i>'}).join('');
-      h+='<div class="sub" style="margin-top:4px"><h3>All habits</h3><small>Tap to check</small></div>';
+      h+='<div class="sub" style="margin-top:4px"><h3>All habits</h3><small>'+n+' of '+t+' done</small></div>';
+      if(!habits.length)h+='<div class="msg">No habits yet. Add your first one below.</div>';
       habits.forEach(function(x,i){
-        var dn2=isDone(i,sel),st=streakOf(i);
         var dots=days.slice(7).map(function(d){var key=keyOf(d);return '<i class="'+(isDone(i,key)?'on':'')+(key===sel?' cur':'')+'"></i>'}).join('');
-        h+='<div role="button" tabindex="0" class="hr2 '+(dn2?'done':'')+'" data-i="'+i+'" data-tone="'+(i%4)+'"><span class="hi">'+x.g+'</span><div class="tx"><b>'+x.n+'</b><small>'+(hCnt(x)&&sel===todayKey?hCur(x)+' of '+x.s:x.s)+' · '+x.c+'</small><div class="wk">'+dots+'</div></div><div class="rt"><span class="rtop"><span class="stk2">'+(st?'🔥 '+st:'')+'</span><button class="ed" data-e="'+i+'" aria-label="Rename habit">✎</button></span>'+(sel===todayKey?(hCur(x)>0?'<span class="dec" data-dec="'+i+'" role="button" aria-label="Remove one">−</span>':'')+(hCur(x)<hTgt(x)?'<span class="dec" data-inc="'+i+'" role="button" aria-label="Add one">+</span>':''):'')+'<span class="ck">'+(dn2?'✓':'')+'</span></div></div>';
+        h+=habitCard(i,sel,tday>0,dots,streakOf(i));
       });
       h+='<button class="addrow" data-newhabit>+ Add a habit</button>';
       h+='<div class="sub"><h3>Last 14 days</h3><small>'+rate+'% done</small></div><div class="heat">'+days.map(function(d){var r=countOn(keyOf(d))/t,l=r>=.8?3:r>=.5?2:r>0?1:0;return '<i class="'+(l?'l'+l:'')+'"></i>'}).join('')+'</div>';
@@ -380,6 +433,21 @@ import {
       h=quit.map(function(q,i){return '<div class="panel" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="min-width:0"><b>'+q.n+'</b><br><small style="color:var(--muted)">'+q.days+' days clean</small></div><button class="chip" data-slip="'+i+'">I slipped</button></div><div id="m'+i+'"></div></div>'}).join('')+'<button class="addrow" data-newquit>+ Quit something new</button>';
     }
     $('#hb').innerHTML=h;
+  }
+  function habitCard(i,key,future,dots,st){
+    var x=habits[i],today=key===todayKey,kind=today?hKind(x):'binary',dn2=isDone(i,key),tg=hTgt(x),cu=hCur(x);
+    var sub='Goal '+x.s+(st?' · 🔥 '+st+(st===1?' day':' days'):'');
+    var h='<div class="hcard'+(dn2?' done':'')+'" data-kind="'+kind+'"><div class="hct"><span class="hci">'+x.g+'</span><div class="hcx"><b>'+esc(x.n)+'</b><small>'+esc(sub)+'</small></div><button class="hced" data-e="'+i+'" aria-label="Edit '+esc(x.n)+'">✎</button></div>';
+    if(kind!=='binary')h+='<div class="hcp"><b>'+cu+'</b><span>/ '+tg+' '+esc(hUnit(x))+'</span></div><i class="pgb"><u style="width:'+Math.min(100,Math.round(cu/tg*100))+'%"></u></i>';
+    h+='<div class="wk">'+dots+'</div>';
+    if(future)return h+'<div class="hcn">Future day. You can check in on the day.</div></div>';
+    h+='<div class="hca">';
+    if(kind!=='binary'){
+      var sp=hStep(x),lb=kind==='time'?sp+' '+hUnit(x):''+sp;
+      h+='<button class="hcs" data-ha="dec" data-hi="'+i+'"'+(cu<=0?' disabled':'')+' aria-label="Remove '+esc(lb)+'">− '+esc(lb)+'</button>';
+      h+='<button class="hcs" data-ha="inc" data-hi="'+i+'"'+(cu>=tg?' disabled':'')+' aria-label="Add '+esc(lb)+'">+ '+esc(lb)+'</button>';
+    }
+    return h+'<button class="hcm" data-ha="'+(dn2?'undo':'complete')+'" data-hi="'+i+'">'+(dn2?'Undo':'Complete')+'</button></div></div>';
   }
   function renderAll(){renderHome();renderTasks();renderHabits()}
   renderAll();
@@ -529,18 +597,25 @@ import {
   });
 
   /* ---------- events ---------- */
-  function toggle(i){habits[i].d=!habits[i].d;renderAll();if(habits[i].d)toast('Nice, '+habits[i].n+' done')}
-  function tapHabit(i){var h=habits[i];if(!hCnt(h)){toggle(i);return}if(hCur(h)>=hTgt(h)){hAdd(h,-hStep(h));renderAll();toast(hCur(h)+' of '+hTgt(h)+' '+hUnit(h));return}hAdd(h,hStep(h));renderAll();toast(h.d?'Nice, '+h.n+' done':hCur(h)+' of '+hTgt(h)+' '+hUnit(h))}
-  function stepHabit(i,sg){var h=habits[i];if(!hCnt(h)){h.d=sg>0;h.v=null;renderAll();if(h.d)toast('Nice, '+h.n+' done');return}hAdd(h,sg*hStep(h));renderAll();if(sg>0)toast(h.d?'Nice, '+h.n+' done':hCur(h)+' of '+hTgt(h)+' '+hUnit(h))}
-  $('#hgrid').addEventListener('click',function(e){var gc=e.target.closest('[data-gi]');if(gc){setDone(+gc.dataset.gi,gc.dataset.gk);renderAll();return}var dc=e.target.closest('[data-dec]');if(dc){stepHabit(+dc.dataset.dec,-1);return}var ic=e.target.closest('[data-inc]');if(ic){stepHabit(+ic.dataset.inc,1);return}var b=e.target.closest('[data-i]');if(b)tapHabit(+b.dataset.i)});
+  function actHabit(i,act,key){
+    var h=habits[i];if(!h)return;key=key||todayKey;
+    if(key!==todayKey){
+      log[key]=log[key]||{};log[key][i]=(act==='complete');
+      persist();renderAll();toast((act==='complete'?'Completed: ':'Undone: ')+h.n);return;
+    }
+    var msg;
+    if(act==='complete'){completeHabit(i);msg='Completed: '+h.n}
+    else if(act==='undo'){undoHabit(i);msg='Undone: '+h.n}
+    else{hAdd(h,(act==='inc'?1:-1)*hStep(h));msg=h.d?'Completed: '+h.n:hCur(h)+' of '+hTgt(h)+' '+hUnit(h)}
+    persist();renderAll();toast(msg);
+  }
+  $('#hgrid').addEventListener('click',function(e){var c=e.target.closest('[data-hc]');if(c){var i=+c.dataset.hc;actHabit(i,habits[i].d?'undo':'complete')}});
   $('#hb').addEventListener('click',function(e){
     if(e.target.closest('[data-newhabit]')){openForm('habit');return}
     if(e.target.closest('[data-newquit]')){openForm('quit');return}
     var ed=e.target.closest('[data-e]');if(ed){openEdit(+ed.dataset.e);return}
     if(dateNav(e))return;
-    var dc=e.target.closest('[data-dec]');if(dc){stepHabit(+dc.dataset.dec,-1);return}
-    var ic=e.target.closest('[data-inc]');if(ic){stepHabit(+ic.dataset.inc,1);return}
-    var b=e.target.closest('[data-i]');if(b){if(tday>0){toast('You can\'t check a future day');return}var hi=+b.dataset.i;if(sel===todayKey&&hCnt(habits[hi])){tapHabit(hi);return}setDone(hi,sel);renderAll();if(isDone(+b.dataset.i,sel))toast('Nice, '+habits[+b.dataset.i].n+' done');return}
+    var ha=e.target.closest('[data-ha]');if(ha){if(tday>0){toast('You can\'t check a future day');return}actHabit(+ha.dataset.hi,ha.dataset.ha,sel);return}
     var s=e.target.closest('[data-slip]');
     if(s){var i=+s.dataset.slip;$('#m'+i).innerHTML='<div class="msg">It happens. Your best run still counts. <button class="chip on" data-reset="'+i+'" style="margin-left:6px">Reset</button></div>'}
     var r=e.target.closest('[data-reset]');
@@ -596,16 +671,36 @@ import {
   }
   $('#exp').addEventListener('click',exportData);
   $('#imp').addEventListener('click',function(){$('#impf').value='';$('#impf').click()});
+  var pendRestore=null;
+  function fmtWhen(s){var d=s?new Date(s):null;return d&&!isNaN(d)?d.toLocaleString([],{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'Unknown'}
+  function rrow(k,v){return '<div class="rrow"><span>'+k+'</span><b>'+v+'</b></div>'}
+  function openRestore(){
+    var d=pendRestore.d,hist=Object.keys(d.log||{}).length;
+    $('#rlist').innerHTML=rrow('File',esc(pendRestore.name))+rrow('Backed up',esc(fmtWhen(d.exported)))+rrow('Habits',d.habits.length)+rrow('Tasks',d.tasks.length)+rrow('Quit items',d.quit.length)+rrow('History',hist+(hist===1?' day':' days'));
+    $('#rnow').textContent='On this device now: '+habits.length+' habits, '+tasks.length+' tasks, '+quit.length+' quit items.';
+    $('#rsheet').hidden=false;
+  }
+  function applyRestore(){
+    var d=pendRestore&&pendRestore.d;if(!d)return;
+    try{
+      try{var cur=localStorage.getItem(KEY);if(cur)localStorage.setItem(KEY+'.prerestore',cur)}catch(e){}
+      localStorage.setItem(KEY,JSON.stringify({day:d.day||todayKey,habits:d.habits,quit:d.quit,tasks:d.tasks,log:d.log||{},cfg:{auto:d.cfg?d.cfg.auto!==false:true,sample:!!(d.cfg&&d.cfg.sample),bak:0,bakDay:'',name:(d.cfg&&d.cfg.name)||'Maruf',av:(d.cfg&&d.cfg.av)||'',photo:(d.cfg&&d.cfg.photo)||'',since:(d.cfg&&d.cfg.since)||''},theme:document.documentElement.getAttribute('data-theme')}));
+      halt=true;location.reload();
+    }catch(e){toast('Could not restore (storage full?)')}
+  }
   $('#impf').addEventListener('change',function(){
     var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();
     r.onload=function(){
-      var d;try{d=JSON.parse(r.result);if((d.app!=='tickly'&&d.app!=='habitask'&&d.app!=='study2do')||!Array.isArray(d.habits)||!Array.isArray(d.tasks)||!Array.isArray(d.quit))throw 0}catch(e){toast('That is not a valid Habitask backup');return}
-      if(!confirm('Replace all current data with this backup?'))return;
-      try{localStorage.setItem(KEY,JSON.stringify({day:d.day||todayKey,habits:d.habits,quit:d.quit,tasks:d.tasks,log:d.log||{},cfg:{auto:d.cfg?d.cfg.auto!==false:true,sample:!!(d.cfg&&d.cfg.sample),bak:0,bakDay:'',name:(d.cfg&&d.cfg.name)||'Maruf',av:(d.cfg&&d.cfg.av)||'',photo:(d.cfg&&d.cfg.photo)||'',since:(d.cfg&&d.cfg.since)||''},theme:document.documentElement.getAttribute('data-theme')}));halt=true;location.reload()}
-      catch(e){toast('Could not restore (storage full?)')}
+      var d;try{d=JSON.parse(r.result);if((d.app!=='tickly'&&d.app!=='habitask'&&d.app!=='study2do')||!Array.isArray(d.habits)||!Array.isArray(d.tasks)||!Array.isArray(d.quit))throw 0}catch(e){toast('That is not a valid Habit-Task backup');return}
+      pendRestore={d:d,name:f.name};openRestore();
     };
     r.readAsText(f);
   });
+  $('#rok').addEventListener('click',applyRestore);
+  $('#rexp').addEventListener('click',exportData);
+  function closeRestore(){$('#rsheet').hidden=true;pendRestore=null}
+  $('#rcancel').addEventListener('click',closeRestore);
+  $('#rsheet').addEventListener('click',function(e){if(e.target===this)closeRestore()});
   $('#clr').addEventListener('click',function(){
     if(!confirm('Remove demo tasks, quit list and history? Your habits stay, so you can rename them.'))return;
     tasks.length=0;quit.length=0;Object.keys(log).forEach(function(k){delete log[k]});
